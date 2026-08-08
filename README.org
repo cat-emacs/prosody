@@ -97,6 +97,18 @@ family behind a role rather than a face or fontset:
 (setq example-popup-font (prosody-font-family 'mono))
 #+end_src
 
+* Nerd Icons
+
+After installing =nerd-icons=, load the optional adapter:
+
+#+begin_src emacs-lisp
+(require 'prosody-nerd-icons)
+#+end_src
+
+The adapter derives private-use character ranges from =nerd-icons-set-font=
+and adds the Nerd Font family to every Prosody fontset without making Nerd
+Icons a core dependency.
+
 * License
 
 GPL-3.0-or-later.  See [[file:LICENSE][LICENSE]].

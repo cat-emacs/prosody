@@ -760,6 +760,13 @@ If ADD is nil, use the existing fonts as an ordered replacement."
   (when (display-graphic-p)
     (when-let* ((spec (prosody--resolved-face-spec fonts)))
       (buffer-face-set spec)
+      (when-let* ((entry (assq 'default face-remapping-alist))
+                  (remapping (cdr buffer-face-mode-remapping))
+                  ((memq remapping (cdr entry))))
+        ;; Relative remaps that inherit `default' can otherwise take font
+        ;; attributes from the global face before Prosody's role is applied.
+        (setcdr entry (cons remapping (delq remapping (cdr entry))))
+        (force-window-update (current-buffer)))
       (message "Set buffer %s face to %s" (current-buffer) fonts)
       spec)))
 
