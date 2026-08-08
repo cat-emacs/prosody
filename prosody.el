@@ -700,9 +700,15 @@ Each function receives one role and returns rules in the resolved form
               (string-join candidates ", ")))
       font)))
 
+(defun prosody-font-family (fonts &optional frame)
+  "Return the first installed family from FONTS on FRAME.
+FONTS may be a semantic role, a family name, or an ordered list of family
+names.  Return nil when FRAME is not graphical or no candidate is installed."
+  (prosody--first-existing-font fonts frame))
+
 (defun prosody--face-family (fonts &optional frame)
   "Return the first installed family for FONTS on FRAME."
-  (prosody--first-existing-font fonts frame))
+  (prosody-font-family fonts frame))
 
 (defun prosody--resolved-face-spec (fonts &optional overrides)
   "Return a face spec for FONTS with role attributes and OVERRIDES."

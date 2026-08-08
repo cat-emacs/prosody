@@ -44,6 +44,17 @@
          '((:modes text-mode :font prose))))
     (should (eq (prosody-role-for-mode 'text-mode) 'documentation))))
 
+(ert-deftest prosody-font-family-resolves-role-candidates ()
+  (let ((prosody-stacks
+         '((serif :ascii ("Missing" "Installed"))))
+        (prosody-roles
+         '((prose :stack serif))))
+    (cl-letf (((symbol-function 'display-graphic-p)
+               (lambda (&optional _frame) t))
+              ((symbol-function 'font-family-list)
+               (lambda (&optional _frame) '("Installed"))))
+      (should (equal (prosody-font-family 'prose) "Installed")))))
+
 (ert-deftest prosody-use-package-normalizes-short-role ()
   (should
    (equal (use-package-normalize/:font-role

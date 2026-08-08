@@ -90,6 +90,13 @@ select one preset or override individual roles:
 Use =M-x prosody-select-preset= to select a preset interactively and
 =M-x prosody-refresh-buffer= after changing local typography programmatically.
 
+Use =prosody-font-family= when another package needs the concrete installed
+family behind a role rather than a face or fontset:
+
+#+begin_src emacs-lisp
+(setq example-popup-font (prosody-font-family 'mono))
+#+end_src
+
 * Nerd Icons
 
 After installing =nerd-icons=, load the optional adapter:
