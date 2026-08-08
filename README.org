@@ -1,0 +1,107 @@
+#+title: Prosody
+
+Semantic typography for Emacs buffers.
+
+Prosody maps major modes and faces to semantic roles such as =prose=,
+=heading=, =code=, and =metadata-label=.  Roles resolve through reusable font
+stacks into dedicated fontsets, keeping Latin, CJK, symbols, mathematics, and
+emoji consistent when a buffer selects another typography preset.
+
+* Installation
+
+With =package-vc= and =use-package=:
+
+#+begin_src emacs-lisp
+(use-package prosody
+  :vc (:url "https://github.com/cat-emacs/prosody")
+  :demand t
+  :config
+  (require 'prosody-use-package))
+#+end_src
+
+Load =prosody-use-package= before evaluating declarations that use
+=:font-role=.  The keyword is intentionally opt-in so Prosody itself does not
+depend on =use-package=.
+
+* Configuration
+
+Font stacks describe physical candidates by script category.  Roles give
+those stacks semantic meaning:
+
+#+begin_src emacs-lisp
+(setq prosody-stacks
+      '((fallback
+         :symbol ("Apple Symbols" "Symbola")
+         :mathematical ("STIX Two Math")
+         :emoji ("Apple Color Emoji" "Noto Color Emoji"))
+        (serif
+         :extends fallback
+         :ascii ("EB Garamond" "DejaVu Serif")
+         :cjk ("Source Han Serif SC" "Noto Serif CJK SC"))
+        (code
+         :extends fallback
+         :ascii ("Iosevka" "DejaVu Sans Mono")
+         :cjk ("Sarasa Mono SC"))))
+
+(setq prosody-roles
+      '((default :stack code :height 160)
+        (prose :stack serif)
+        (heading :extends prose :height 1.5 :weight bold)
+        (code :stack code)))
+#+end_src
+
+Register rules directly when configuration is not attached to a package:
+
+#+begin_src emacs-lisp
+(prosody-register
+ 'configuration
+ '(:modes (conf-mode toml-ts-mode) :font code))
+#+end_src
+
+Or use the =:font-role= keyword:
+
+#+begin_src emacs-lisp
+(use-package org
+  :font-role
+  (prose
+   :modes org-mode
+   :faces ((org-level-* heading
+                        :height 1.6
+                        :height-step -0.075)
+           (org-block code))))
+#+end_src
+
+A trailing =*= in a face name matches every existing face with that prefix.
+=:height-step= and =:weight-step= adjust successive matches.
+
+* Buffer-local presets
+
+=prosody-presets= contains named overrides of =prosody-roles=.  A buffer can
+select one preset or override individual roles:
+
+#+begin_src emacs-lisp
+;; -*- prosody-buffer-preset: classical; -*-
+
+;; Local Variables:
+;; prosody-buffer-overrides: ((prose :fonts ("Charter")))
+;; End:
+#+end_src
+
+Use =M-x prosody-select-preset= to select a preset interactively and
+=M-x prosody-refresh-buffer= after changing local typography programmatically.
+
+* Nerd Icons
+
+After installing =nerd-icons=, load the optional adapter:
+
+#+begin_src emacs-lisp
+(require 'prosody-nerd-icons)
+#+end_src
+
+The adapter derives private-use character ranges from =nerd-icons-set-font=
+and adds the Nerd Font family to every Prosody fontset without making Nerd
+Icons a core dependency.
+
+* License
+
+GPL-3.0-or-later.  See [[file:LICENSE][LICENSE]].
