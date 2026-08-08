@@ -569,16 +569,16 @@ Each function receives the configured frame.")
         (make-empty-face face))
       (let* ((fontset (and (fboundp 'prosody--fontset-for-role)
                            (prosody--fontset-for-role role frame)))
-             (signature (list spec fontset))
+             (family (prosody-font-family role frame))
+             (signature (list spec fontset family))
              (key (cons face frame)))
         (unless (equal signature
                        (gethash key prosody--role-face-signatures))
           (dolist (attribute (mapcar #'car face-attribute-name-alist))
             (set-face-attribute face frame attribute 'unspecified))
-          ;; `:font' resolves Latin; `:fontset' restores script mappings.
           (apply #'set-face-attribute face frame
-                 (append (when fontset
-                           (list :font fontset :fontset fontset))
+                 (append (when family (list :family family))
+                         (when fontset (list :fontset fontset))
                          (prosody--role-attributes role)))
           (puthash key signature prosody--role-face-signatures)))
       face)))
