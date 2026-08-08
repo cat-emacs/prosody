@@ -560,8 +560,9 @@ Each function receives the configured frame.")
 (defvar prosody--role-face-signatures (make-hash-table :test 'equal)
   "Last configured signature for each Prosody role face and frame.")
 
-(defun prosody--role-face (role &optional frame)
-  "Return ROLE's face for the current buffer, creating it on FRAME."
+(defun prosody--role-face (role &optional frame force)
+  "Return ROLE's face for the current buffer, creating it on FRAME.
+When FORCE is non-nil, reapply its attributes even if its signature is cached."
   (when-let* ((spec (prosody--role-spec role)))
     (let* ((face (prosody--role-face-name role spec))
            (frame (or frame (selected-frame))))
@@ -572,8 +573,9 @@ Each function receives the configured frame.")
              (family (prosody-font-family role frame))
              (signature (list spec fontset family))
              (key (cons face frame)))
-        (unless (equal signature
-                       (gethash key prosody--role-face-signatures))
+        (unless (and (not force)
+                     (equal signature
+                            (gethash key prosody--role-face-signatures)))
           (dolist (attribute (mapcar #'car face-attribute-name-alist))
             (set-face-attribute face frame attribute 'unspecified))
           (apply #'set-face-attribute face frame
@@ -789,7 +791,9 @@ If ADD is nil, use the existing fonts as an ordered replacement."
           (prosody-buffer-overrides nil))
       ;; Configure the base role fontsets before scripts are first displayed.
       (dolist (role prosody-roles)
-        (prosody--role-face (car role) frame))
+        ;; Theme activation can reset dynamically created face attributes
+        ;; without invalidating Prosody's configuration signature.
+        (prosody--role-face (car role) frame t))
       (when-let* ((fontset (prosody--fontset-for-role 'default frame)))
         (apply #'set-face-attribute 'default frame
                :font fontset :fontset fontset
