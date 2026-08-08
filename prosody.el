@@ -755,18 +755,22 @@ If ADD is nil, use the existing fonts as an ordered replacement."
         (message "Set %s face font to %s" face family)
         family))))
 
+(defun prosody--prioritize-buffer-face-remapping ()
+  "Keep Prosody's buffer face ahead of relative default remaps."
+  (when-let* ((entry (assq 'default face-remapping-alist))
+              (remapping (cdr buffer-face-mode-remapping))
+              ((memq remapping (cdr entry))))
+    (setcdr entry (cons remapping (delq remapping (cdr entry))))
+    (force-window-update (current-buffer))))
+
 (defun prosody--set-buffer-font (fonts)
   "Set the current graphical buffer face from FONTS or a font role."
   (when (display-graphic-p)
     (when-let* ((spec (prosody--resolved-face-spec fonts)))
       (buffer-face-set spec)
-      (when-let* ((entry (assq 'default face-remapping-alist))
-                  (remapping (cdr buffer-face-mode-remapping))
-                  ((memq remapping (cdr entry))))
-        ;; Relative remaps that inherit `default' can otherwise take font
-        ;; attributes from the global face before Prosody's role is applied.
-        (setcdr entry (cons remapping (delq remapping (cdr entry))))
-        (force-window-update (current-buffer)))
+      ;; Relative remaps that inherit `default' can otherwise take font
+      ;; attributes from the global face before Prosody's role is applied.
+      (prosody--prioritize-buffer-face-remapping)
       (message "Set buffer %s face to %s" (current-buffer) fonts)
       spec)))
 
@@ -845,6 +849,22 @@ If ADD is nil, use the existing fonts as an ordered replacement."
 
 (defvar-local prosody--mode-font-rescale-state nil
   "Previous buffer-local rescale state saved by Prosody.")
+
+(defun prosody--reprioritize-after-default-remap (face &rest specs)
+  "Restore Prosody font priority after relative SPECS remap default FACE."
+  (when (and (eq face 'default)
+             prosody--mode-buffer-face
+             (seq-some
+              (lambda (spec)
+                (and (facep spec)
+                     (memq 'default
+                           (ensure-list
+                            (face-attribute spec :inherit nil)))))
+              specs))
+    (prosody--prioritize-buffer-face-remapping)))
+
+(advice-add 'face-remap-add-relative :after
+            #'prosody--reprioritize-after-default-remap)
 
 (defun prosody--clear-mode-font ()
   "Remove mode font settings owned by Prosody from the current buffer."
