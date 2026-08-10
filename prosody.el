@@ -253,8 +253,7 @@
     (quasi-proportional
      :extends serif
      :ascii ("Iosevka Etoile" "Iosevka Aile")
-     :cjk ("LXGW WenKai TC" "LXGW WenKai"
-           "Source Han Serif SC VF" "Noto Serif CJK SC"))
+     :cjk ("Pengli WenKai" "LXGW WenKai"))
     (monospace-narrow
      :extends fallback
      :ascii ("Iosevka" "Iosevka Term")
