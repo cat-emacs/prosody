@@ -1,13 +1,23 @@
 #+title: Prosody
 
-Semantic typography for Emacs buffers.
+Semantic typography and script-aware fontsets for Emacs buffers.
 
-Prosody maps major modes and faces to semantic roles such as =prose=,
-=heading=, =code=, and =metadata-label=.  Roles resolve through reusable font
-stacks into dedicated fontsets, keeping Latin, CJK, symbols, mathematics, and
-emoji consistent when a buffer selects another typography preset.
+Prosody separates physical font fallback from semantic typography and where
+that typography is used:
+
+- A *stack* orders installed font candidates for Latin, CJK, symbols,
+  mathematics, and emoji.
+- A *role* gives a stack semantic meaning such as =prose=, =heading=, =code=,
+  or =metadata-label=.
+- A *font rule* applies roles to buffers and faces selected by major mode or
+  buffer name.
+- A *preset* changes role typography for one buffer without changing its font
+  rules.
 
 * Installation
+
+Prosody requires Emacs 29.4 or newer.  =use-package= and =nerd-icons= are
+optional integrations rather than core dependencies.
 
 With =package-vc= and =use-package=:
 
@@ -20,94 +30,403 @@ With =package-vc= and =use-package=:
 #+end_src
 
 Load =prosody-use-package= before evaluating declarations that use
-=:font-role=.  The keyword is intentionally opt-in so Prosody itself does not
-depend on =use-package=.
+=:font-rule=.  The integration is opt-in so Prosody itself does not depend on
+=use-package=.
 
-* Configuration
+Prosody runs =prosody-setup= after initialization and for every new graphical
+frame.  If a theme manager resets face attributes after loading a theme, call
+=prosody-setup= from that manager's refresh hook.
 
-Font stacks describe physical candidates by script category.  Roles give
-those stacks semantic meaning:
+* Quick start
 
-#+begin_src emacs-lisp
-(setq prosody-stacks
-      '((fallback
-         :symbol ("Apple Symbols" "Symbola")
-         :mathematical ("STIX Two Math")
-         :emoji ("Apple Color Emoji" "Noto Color Emoji"))
-        (serif
-         :extends fallback
-         :ascii ("EB Garamond" "DejaVu Serif")
-         :cjk ("Source Han Serif SC" "Noto Serif CJK SC"))
-        (code
-         :extends fallback
-         :ascii ("Iosevka" "DejaVu Sans Mono")
-         :cjk ("Sarasa Mono SC"))))
-
-(setq prosody-roles
-      '((default :stack code :height 160)
-        (prose :stack serif)
-        (heading :extends prose :height 1.5 :weight bold)
-        (code :stack code)))
-#+end_src
-
-Register rules directly when configuration is not attached to a package:
+Prosody includes usable default stacks, roles, presets, script rules, and mode
+fallbacks.  Package modules only need to declare where semantic roles apply:
 
 #+begin_src emacs-lisp
-(prosody-register
- 'configuration
- '(:modes (conf-mode toml-ts-mode) :font code))
-#+end_src
+(use-package markdown-mode
+  :font-rule prose)
 
-Or use the =:font-role= keyword:
+(use-package meow
+  :font-rule (code :buffer-name "Meow Cheatsheet"))
 
-#+begin_src emacs-lisp
 (use-package org
-  :font-role
+  :font-rule
   (prose
    :modes org-mode
    :faces ((org-level-* heading
                         :height 1.6
                         :height-step -0.075)
-           (org-block code))))
+           (org-block code)
+           (org-table table))))
 #+end_src
 
-A trailing =*= in a face name matches every existing face with that prefix.
-=:height-step= and =:weight-step= adjust successive matches.
+* Font stacks
 
-* Buffer-local presets
-
-=prosody-presets= contains named overrides of =prosody-roles=.  A buffer can
-select one preset or override individual roles:
+=prosody-stacks= owns physical font candidates.  Each entry has the form:
 
 #+begin_src emacs-lisp
-;; -*- prosody-buffer-preset: classical; -*-
-
-;; Local Variables:
-;; prosody-buffer-overrides: ((prose :fonts ("Charter")))
-;; End:
+(STACK
+ :extends PARENT-STACK
+ :ascii (FAMILY ...)
+ :cjk (FAMILY ...)
+ :symbol (FAMILY ...)
+ :mathematical (FAMILY ...)
+ :emoji (FAMILY ...))
 #+end_src
 
-Use =M-x prosody-select-preset= to select a preset interactively and
-=M-x prosody-refresh-buffer= after changing local typography programmatically.
+The supported stack keys are:
 
-Use =prosody-font-family= when another package needs the concrete installed
-family behind a role rather than a face or fontset:
+| Key             | Meaning                                      |
+|-----------------+----------------------------------------------|
+| =:extends=        | Parent stack providing inherited candidates |
+| =:ascii=          | Latin and ordinary ASCII candidates          |
+| =:cjk=            | CJK script candidates                        |
+| =:symbol=         | Symbol candidates                            |
+| =:mathematical=   | Mathematical candidates                      |
+| =:emoji=          | Emoji candidates                             |
+
+When a child and parent both define a category, Prosody combines candidates
+child-first and removes duplicates.  Only installed families are added to a
+fontset.
+
+Define a complete replacement before loading Prosody, so interdependent stack
+and role values become visible together:
+
+#+begin_src emacs-lisp
+(use-package prosody
+  :vc (:url "https://github.com/cat-emacs/prosody")
+  :demand t
+  :init
+  (setq prosody-stacks
+        '((fallback
+           :symbol ("Apple Symbols" "Symbola")
+           :mathematical ("STIX Two Math")
+           :emoji ("Apple Color Emoji" "Noto Color Emoji"))
+          (serif
+           :extends fallback
+           :ascii ("EB Garamond" "DejaVu Serif")
+           :cjk ("Source Han Serif SC" "Noto Serif CJK SC"))
+          (code
+           :extends fallback
+           :ascii ("Maple Mono" "Iosevka" "DejaVu Sans Mono")
+           :cjk ("Maple Mono CN" "Sarasa Mono SC")))
+        prosody-roles
+        '((default :stack code :height 160)
+          (prose :stack serif)
+          (heading :extends prose :height 1.5 :weight bold)
+          (code :stack code)))
+  :config
+  (require 'prosody-use-package))
+#+end_src
+
+* Semantic roles
+
+=prosody-roles= maps semantic names to stacks and face attributes:
+
+#+begin_src emacs-lisp
+(ROLE
+ :stack STACK
+ :extends PARENT-ROLE
+ :fonts (PREFERRED-ASCII-FAMILY ...)
+ FACE-ATTRIBUTE VALUE ...)
+#+end_src
+
+Role-specific keys are:
+
+| Key        | Meaning                                                   |
+|------------+-----------------------------------------------------------|
+| =:stack=     | Physical stack used by the role                           |
+| =:extends=   | Parent role providing inherited role properties           |
+| =:fonts=     | ASCII families prepended to the resolved stack candidates |
+
+Other keys are passed to =set-face-attribute=, including =:family=, =:height=,
+=:weight=, =:slant=, =:width=, =:underline=, and other standard face
+attributes.  The =default= role uses an absolute =:height= in tenths of a point;
+content roles normally use relative heights.
+
+Prosody creates one face and one script-aware fontset for each effective role.
+The first installed ASCII candidate supplies the face family; the generated
+fontset preserves CJK, symbol, mathematical, emoji, and extension mappings.
+
+* The =:font-rule= use-package keyword
+
+=prosody-use-package= adds exactly one keyword, =:font-rule=.  It supports
+three declaration forms:
+
+#+begin_src emacs-lisp
+;; Apply ROLE to the conventional PACKAGE-mode.
+:font-rule ROLE
+
+;; ROLE-first shorthand with selectors and additional effects.
+:font-rule (ROLE :KEY VALUE ...)
+
+;; Full property-list form, also used for face-only declarations.
+:font-rule (:KEY VALUE ...)
+#+end_src
+
+The supported =:font-rule= keys are:
+
+| Key             | Value                                      | Meaning |
+|-----------------+--------------------------------------------+---------|
+| =:modes=          | Mode symbol or list of mode symbols       | Match exact or derived major modes |
+| =:buffer-name=    | Regexp string                              | Match =buffer-name= |
+| =:font=           | Semantic role symbol                       | Set the buffer's base role |
+| =:faces=          | List of face rules                         | Remap individual faces |
+| =:rescale=        | =face-font-rescale-alist= value             | Install buffer-local family rescaling |
+
+At least one of =:font= or a non-empty =:faces= value is required.  A
+=:rescale= value augments such a rule; it cannot be the rule's only effect.
+The use-package form accepts semantic role symbols for =:font= and face-rule
+font sources.
+
+When neither =:modes= nor =:buffer-name= is present, Prosody derives the
+conventional major mode from the package name: =foo= becomes =foo-mode=, while
+=foo-mode= remains =foo-mode=.  When both selectors are present, they are
+alternatives and either one can match.
+
+Examples:
+
+#+begin_src emacs-lisp
+(use-package python
+  :font-rule (code-python :modes python-base-mode))
+
+(use-package example-preview
+  :font-rule (:buffer-name "\\`Example Preview\\'"
+              :font documentation))
+
+(use-package vterm
+  :font-rule (terminal
+              :rescale (("Symbols Nerd Font" . 1.2))))
+
+(use-package org-modern
+  :font-rule
+  (:modes org-mode
+   :faces ((org-modern-label metadata-label)
+           (org-modern-tag metadata-label))))
+#+end_src
+
+The package name is the rule owner.  Registering the same owner again replaces
+its rule without changing declaration order.
+
+** Face rules
+
+Each =:faces= entry has the form:
+
+#+begin_src emacs-lisp
+(FACE ROLE FACE-ATTRIBUTE VALUE ...)
+#+end_src
+
+A trailing =*= in =FACE= matches every existing face with that prefix in
+version-aware name order.  Standard face attributes override those inherited
+from =ROLE=.  Two additional attributes vary successive wildcard matches:
+
+| Key             | Meaning |
+|-----------------+---------|
+| =:height-step=    | Add a numeric height delta for each match after the first |
+| =:weight-step=    | Move through standard font weights for each successive match |
+
+For example:
+
+#+begin_src emacs-lisp
+(:faces ((org-level-* heading
+                      :height 1.6
+                      :height-step -0.075
+                      :weight bold
+                      :weight-step -0.5)))
+#+end_src
+
+** Matching and priority
+
+All matching registered rules are layered in declaration order:
+
+1. The first matching rule with =:font= owns the buffer font.
+2. Every matching rule contributes its =:faces= remaps.
+3. The first matching rule with =:rescale= owns buffer-local rescaling.
+4. If no registered rule matches, Prosody applies only the first matching
+   entry from =prosody-mode-rules=.
+
+Prosody keeps its buffer role ahead of later relative =default= remaps, so
+color-oriented packages such as Solaire do not replace the semantic font
+family.
+
+* Direct rules and fallback rules
+
+Use =prosody-register= when a rule is not naturally attached to a
+=use-package= declaration:
+
+#+begin_src emacs-lisp
+(prosody-register
+ 'configuration
+ '(:modes (conf-mode toml-ts-mode)
+   :font code-config))
+
+(prosody-register
+ 'special-preview
+ '(:buffer-name "\\`Special Preview\\'"
+   :font ("Maple Mono" "Iosevka")))
+#+end_src
+
+Direct rules use the same five keys as =:font-rule=.  Unlike the use-package
+normalizer, direct =:font= and face-rule sources may be a semantic role, one
+concrete family string, or an ordered list of family strings.
+
+=prosody-mode-rules= contains centralized fallback rules.  They use the same
+rule shape, but only the first matching fallback is used and only when no
+registered rule matches.
+
+The registry helpers are:
+
+| Function                    | Purpose |
+|-----------------------------+---------|
+| =prosody-register=            | Add or replace one owner's rule |
+| =prosody-rules=               | Return a copy of registered rules |
+| =prosody-clear-rules=         | Clear the registry |
+| =prosody-restore-rules=       | Restore a copied registry |
+
+The copy/clear/restore operations support configuration collectors that need
+transactional rule state.
+
+* Named and buffer-local presets
+
+=prosody-presets= defines named role overrides on top of =prosody-roles=:
+
+#+begin_src emacs-lisp
+(setq prosody-presets
+      '((reading
+         (prose :stack serif :fonts ("Iowan Old Style"))
+         (heading :weight semi-bold))
+        (technical
+         (prose :fonts ("STIX Two Text"))
+         (code :fonts ("SF Mono")))))
+#+end_src
+
+Preset and buffer-local role overrides accept these keys:
+
+| Key       | Meaning |
+|-----------+---------|
+| =:stack=    | Replace the role's stack |
+| =:fonts=    | Replace its preferred ASCII list while retaining stack fallback |
+| =:height=   | Override face height |
+| =:weight=   | Override face weight |
+| =:slant=    | Override face slant |
+| =:width=    | Override face width |
+
+Two automatically buffer-local variables select and refine the effective
+preset:
+
+#+begin_src emacs-lisp
+(setq-local prosody-buffer-preset 'technical)
+(setq-local prosody-buffer-overrides
+            '((prose :stack sans-serif)
+              (code :fonts ("Maple Mono"))))
+(prosody-refresh-buffer)
+#+end_src
+
+They are safe file-local variables after validation:
+
+#+begin_example
+;; Local Variables:
+;; prosody-buffer-preset: technical
+;; prosody-buffer-overrides: ((code :fonts ("Maple Mono")))
+;; End:
+#+end_example
+
+Use =M-x prosody-select-preset= interactively.  =<base>= creates a local nil
+selection that ignores a non-nil default preset; =<default>= removes the local
+binding.  Use =M-x prosody-refresh-buffer= after changing local typography
+programmatically.
+
+The effective precedence from highest to lowest is:
+
+1. =prosody-buffer-overrides=
+2. the selected entry in =prosody-presets=
+3. =prosody-roles=
+4. inherited parent-role properties
+
+* Script rules and fontset extensions
+
+=prosody-script-rules= maps Emacs character targets to stack categories:
+
+#+begin_src emacs-lisp
+((CHARACTERS CATEGORY OPTIONAL-ADD) ...)
+#+end_src
+
+=CHARACTERS= is a script symbol or list of script symbols, =CATEGORY= names a
+stack category such as =cjk= or =emoji=, and =OPTIONAL-ADD= is passed to
+=set-fontset-font= to replace, prepend, or append candidates.
+
+Packages can contribute precise character ranges without modifying the core
+script list.  Register a function that receives the semantic role and returns
+rules in resolved form:
+
+#+begin_src emacs-lisp
+(defun my-prosody-fontset-rules (_role)
+  '((((#xe000 . #xf8ff)) ("My Symbols Font") prepend)))
+
+(prosody-add-fontset-rule-function #'my-prosody-fontset-rules)
+#+end_src
+
+Each returned rule has the form =(CHARACTERS FONTS OPTIONAL-ADD)=, where
+=FONTS= is an ordered list of concrete family names.  =CHARACTERS= is one
+target or a list of targets accepted by =set-fontset-font=; wrap a cons range
+in a list as shown above.  Registration invalidates generated fontsets and
+refreshes visible buffers.
+
+* Applying roles outside buffer rules
+
+Use =prosody-font-family= when another package needs the first installed
+concrete family behind a role:
 
 #+begin_src emacs-lisp
 (setq example-popup-font (prosody-font-family 'mono))
 #+end_src
 
+Use =prosody-set-face-font= to apply a role or concrete family list to one
+face, optionally on a specific frame:
+
+#+begin_src emacs-lisp
+(prosody-set-face-font 'fixed-pitch 'code)
+(prosody-set-face-font 'example-face '("Maple Mono" "Iosevka") frame)
+#+end_src
+
+Use =prosody-apply-to-region= to prepend the role selected for another major
+mode while preserving existing syntax faces.  This is useful for embedded
+source blocks:
+
+#+begin_src emacs-lisp
+(prosody-apply-to-region 'python-mode start end)
+#+end_src
+
 * Nerd Icons
 
-After installing =nerd-icons=, load the optional adapter:
+After installing =nerd-icons=, load the optional integration:
 
 #+begin_src emacs-lisp
 (require 'prosody-nerd-icons)
 #+end_src
 
-The adapter derives private-use character ranges from =nerd-icons-set-font=
-and adds the Nerd Font family to every Prosody fontset without making Nerd
-Icons a core dependency.
+The integration derives private-use character ranges from
+=nerd-icons-set-font=, contributes them through
+=prosody-fontset-rule-functions= to every generated role fontset, and applies
+them to each graphical frame's active default fontset.  Nerd Icons remains an
+optional dependency.
+
+* Lifecycle and hooks
+
+=prosody-setup= configures role faces and fontsets for a graphical frame.  It
+is installed on =after-init-hook= and =after-make-frame-functions=, and it
+accepts an optional frame argument.  It also runs immediately when Prosody is
+loaded into an already initialized graphical session.  =prosody-setup-hook=
+runs afterward with the configured frame.
+
+Role fontsets are cached by their resolved signatures.  Per-frame role-face
+attributes are nevertheless reapplied on every setup because theme activation
+can reset dynamically created faces without changing those signatures.  This
+also makes the first GUI frame created by an Emacs daemon deterministic.
+
+Buffer font rules are applied when a buffer first becomes visible and after a
+major-mode change or revert.  Refreshes only touch visible buffers and preserve
+an unrelated =buffer-face-mode= owned by other configuration.
 
 * License
 
