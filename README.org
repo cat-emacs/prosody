@@ -329,10 +329,12 @@ They are safe file-local variables after validation:
 ;; End:
 #+end_example
 
-Use =M-x prosody-select-preset= interactively.  =<base>= creates a local nil
-selection that ignores a non-nil default preset; =<default>= removes the local
-binding.  Use =M-x prosody-refresh-buffer= after changing local typography
-programmatically.
+Use =M-x prosody-select-preset= to select a preset for the current buffer.
+=<base>= creates a local nil selection that ignores a non-nil default preset;
+=<default>= removes the local binding.  With a prefix argument,
+=C-u M-x prosody-select-preset= changes the global default instead.  Existing
+buffer-local and file-local selections continue to override that default.  Use
+=M-x prosody-refresh-buffer= after changing local typography programmatically.
 
 The effective precedence from highest to lowest is:
 

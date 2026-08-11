@@ -38,6 +38,43 @@
               '(:stack serif :height 1.3 :weight bold
                 :fonts ("Charter") :slant italic))))))
 
+(ert-deftest prosody-select-preset-global-preserves-local-selection ()
+  (let ((previous-default (default-value 'prosody-buffer-preset))
+        (prosody-presets '((reading)))
+        refreshed)
+    (unwind-protect
+        (cl-letf (((symbol-function 'prosody--configuration-changed)
+                   #'ignore)
+                  ((symbol-function 'prosody--refresh-mode-fonts)
+                   (lambda (&rest _) (setq refreshed t))))
+          (set-default 'prosody-buffer-preset nil)
+          (with-temp-buffer
+            (setq-local prosody-buffer-preset 'local)
+            (prosody-select-preset 'reading t)
+            (should (eq (default-value 'prosody-buffer-preset) 'reading))
+            (should (eq prosody-buffer-preset 'local))
+            (should refreshed)))
+      (set-default 'prosody-buffer-preset previous-default))))
+
+(ert-deftest prosody-select-preset-local-can-restore-global-default ()
+  (let ((previous-default (default-value 'prosody-buffer-preset))
+        (prosody-presets '((reading) (technical)))
+        refreshed)
+    (unwind-protect
+        (cl-letf (((symbol-function 'prosody-refresh-buffer)
+                   (lambda () (setq refreshed t))))
+          (set-default 'prosody-buffer-preset 'reading)
+          (with-temp-buffer
+            (prosody-select-preset 'technical)
+            (should (local-variable-p 'prosody-buffer-preset))
+            (should (eq prosody-buffer-preset 'technical))
+            (should (eq (default-value 'prosody-buffer-preset) 'reading))
+            (should refreshed)
+            (prosody-select-preset "<default>")
+            (should-not (local-variable-p 'prosody-buffer-preset))
+            (should (eq prosody-buffer-preset 'reading))))
+      (set-default 'prosody-buffer-preset previous-default))))
+
 (ert-deftest prosody-role-for-mode-prefers-registered-rules ()
   (let ((prosody-rule-alist
          '((example :modes text-mode :font documentation)))

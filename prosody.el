@@ -946,36 +946,54 @@ owned by other configuration."
     (when (get-buffer-window (current-buffer) 'visible)
       (font-lock-ensure))))
 
-(defun prosody-select-preset (selection)
+(defun prosody-select-preset (selection &optional global)
   "Select a named font preset for the current buffer.
-SELECTION may also restore the default value or select the base preset."
+With prefix argument GLOBAL, set the global default while preserving existing
+buffer-local selections.  SELECTION may also select the base preset; without
+GLOBAL, it may restore the global default."
   (interactive
-   (let* ((choices
-           (append '("<default>" "<base>")
+   (let* ((global current-prefix-arg)
+          (choices
+           (append (if global '("<base>") '("<default>" "<base>"))
                    (mapcar (lambda (entry) (symbol-name (car entry)))
                            prosody-presets)))
-          (current (if (local-variable-p 'prosody-buffer-preset)
-                       (if prosody-buffer-preset
-                           (symbol-name prosody-buffer-preset)
-                         "<base>")
-                     "<default>")))
-     (list (completing-read "Buffer font preset: " choices nil t
-                            nil nil current))))
-  (pcase selection
-    ("<default>" (kill-local-variable 'prosody-buffer-preset))
-    ("<base>" (setq-local prosody-buffer-preset nil))
-    ((pred symbolp)
-     (unless (assq selection prosody-presets)
-       (user-error "Unknown font preset %S" selection))
-     (setq-local prosody-buffer-preset selection))
-    ((pred stringp)
-     (let ((preset (intern selection)))
-       (unless (assq preset prosody-presets)
-         (user-error "Unknown font preset %S" preset))
-       (setq-local prosody-buffer-preset preset))))
-  (prosody-refresh-buffer)
-  (message "Buffer font preset: %s"
-           (or prosody-buffer-preset "base")))
+          (local-p (local-variable-p 'prosody-buffer-preset))
+          (preset (if global
+                      (default-value 'prosody-buffer-preset)
+                    prosody-buffer-preset))
+          (current (cond
+                    ((and (not global) (not local-p)) "<default>")
+                    (preset (symbol-name preset))
+                    (t "<base>"))))
+     (list (completing-read
+            (if global "Global default font preset: " "Buffer font preset: ")
+            choices nil t nil nil current)
+           global)))
+  (let* ((inherit (equal selection "<default>"))
+         (preset (cond
+                  (inherit nil)
+                  ((equal selection "<base>") nil)
+                  ((symbolp selection) selection)
+                  ((stringp selection) (intern selection))
+                  (t (user-error "Invalid font preset %S" selection)))))
+    (when (and global inherit)
+      (user-error "The global preset has no higher default to restore"))
+    (when (and preset (not (assq preset prosody-presets)))
+      (user-error "Unknown font preset %S" preset))
+    (if global
+        (progn
+          (prosody--set-buffer-preset 'prosody-buffer-preset preset)
+          (prosody--refresh-mode-fonts))
+      (if inherit
+          (kill-local-variable 'prosody-buffer-preset)
+        (setq-local prosody-buffer-preset preset))
+      (prosody-refresh-buffer))
+    (message "%s font preset: %s"
+             (if global "Global default" "Buffer")
+             (or (if global
+                     (default-value 'prosody-buffer-preset)
+                   prosody-buffer-preset)
+                 "base"))))
 
 (defun prosody--refresh-after-local-variables ()
   "Refresh explicit buffer-local font configuration after loading it."
