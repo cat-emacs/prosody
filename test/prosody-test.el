@@ -5,7 +5,8 @@
 (require 'prosody-use-package)
 
 (ert-deftest prosody-register-preserves-order-and-replaces-owner ()
-  (let ((prosody-rule-alist nil))
+  (let ((prosody-rule-alist nil)
+        (prosody-roles '((code) (prose) (mono))))
     (prosody-register 'alpha '(:modes alpha-mode :font code))
     (prosody-register 'beta '(:modes beta-mode :font prose))
     (prosody-register 'alpha '(:modes alpha-mode :font mono))

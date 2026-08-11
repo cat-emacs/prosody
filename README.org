@@ -25,6 +25,29 @@ With =package-vc= and =use-package=:
 (use-package prosody
   :vc (:url "https://github.com/cat-emacs/prosody")
   :demand t
+  :custom
+  (prosody-stacks
+   '((fallback
+      :symbol ("Symbola")
+      :mathematical ("STIX Two Math" "Noto Sans Math")
+      :emoji ("Noto Color Emoji" "Apple Color Emoji"))
+     (serif
+      :extends fallback
+      :ascii ("DejaVu Serif")
+      :cjk ("Noto Serif CJK SC"))
+     (code
+      :extends fallback
+      :ascii ("DejaVu Sans Mono")
+      :cjk ("Noto Sans Mono CJK SC"))))
+  (prosody-roles
+   '((default :stack code :height 140)
+     (prose :stack serif)
+     (heading :extends prose :height 1.5 :weight bold)
+     (code :stack code)
+     (table :extends code)))
+  (prosody-mode-rules
+   '((:modes prog-mode :font code)
+     (:modes text-mode :font prose)))
   :config
   (require 'prosody-use-package))
 #+end_src
@@ -39,8 +62,10 @@ frame.  If a theme manager resets face attributes after loading a theme, call
 
 * Quick start
 
-Prosody includes usable default stacks, roles, presets, script rules, and mode
-fallbacks.  Package modules only need to declare where semantic roles apply:
+Prosody leaves font stacks, semantic roles, named presets, and mode fallbacks
+unconfigured.  The owning Emacs configuration defines them before Prosody
+loads, as in the installation example above.  Package modules can then declare
+where those semantic roles apply:
 
 #+begin_src emacs-lisp
 (use-package markdown-mode
@@ -89,35 +114,8 @@ When a child and parent both define a category, Prosody combines candidates
 child-first and removes duplicates.  Only installed families are added to a
 fontset.
 
-Define a complete replacement before loading Prosody, so interdependent stack
-and role values become visible together:
-
-#+begin_src emacs-lisp
-(use-package prosody
-  :vc (:url "https://github.com/cat-emacs/prosody")
-  :demand t
-  :init
-  (setq prosody-stacks
-        '((fallback
-           :symbol ("Apple Symbols" "Symbola")
-           :mathematical ("STIX Two Math")
-           :emoji ("Apple Color Emoji" "Noto Color Emoji"))
-          (serif
-           :extends fallback
-           :ascii ("EB Garamond" "DejaVu Serif")
-           :cjk ("Source Han Serif SC" "Noto Serif CJK SC"))
-          (code
-           :extends fallback
-           :ascii ("Maple Mono" "Iosevka" "DejaVu Sans Mono")
-           :cjk ("Maple Mono CN" "Sarasa Mono SC")))
-        prosody-roles
-        '((default :stack code :height 160)
-          (prose :stack serif)
-          (heading :extends prose :height 1.5 :weight bold)
-          (code :stack code)))
-  :config
-  (require 'prosody-use-package))
-#+end_src
+Define stacks and roles together before loading Prosody, so their
+interdependent values become visible atomically.
 
 * Semantic roles
 

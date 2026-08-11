@@ -224,52 +224,9 @@
   (set-default symbol value)
   (prosody--configuration-changed))
 
-(defcustom prosody-stacks
-  '((fallback
-     :symbol ("Apple Symbols" "Symbola")
-     :mathematical ("STIX Two Math"
-                    "DejaVu Math TeX Gyre"
-                    "Noto Sans Math")
-     :emoji ("Apple Color Emoji"))
-    (sans-serif
-     :extends fallback
-     :ascii ("Inter" "Avenir Next" "DejaVu Sans")
-     :cjk ("LXGW Neo XiHei" "Source Han Sans SC" "PingFang SC" "Noto Sans CJK SC"
-           "Hiragino Sans GB" "Microsoft YaHei"))
-    (serif
-     :extends fallback
-     :ascii ("EB Garamond" "Athelas" "Iowan Old Style" "Baskerville"
-             "Roboto Serif" "DejaVu Serif" "Georgia")
-     :cjk ("Zhuque Fangsong (technical preview)" "LXGW Neo ZhiSong"
-           "Source Han Serif SC VF" "Songti SC" "STFangsong"
-           "LXGW WenKai" "Noto Serif CJK SC"))
-    (slab-serif
-     :extends serif
-     :ascii ("Roboto Slab" "American Typewriter"))
-    (cursive
-     :extends serif
-     :ascii ("Snell Roundhand" "Apple Chancery" "Zapfino")
-     :cjk ("Xingkai SC" "Kaiti SC" "STKaiti"))
-    (quasi-proportional
-     :extends serif
-     :ascii ("Iosevka Etoile" "Iosevka Aile")
-     :cjk ("Pengli WenKai" "LXGW WenKai"))
-    (monospace-narrow
-     :extends fallback
-     :ascii ("Iosevka" "Iosevka Term")
-     :symbol ("Iosevka")
-     :cjk ("LXGW WenKai Mono" "Sarasa Mono SC"))
-    (monospace-align
-     :extends monospace-narrow
-     :ascii ("Maple Mono")
-     :cjk ("Maple Mono CN"))
-    (monospace-code
-     :extends monospace-align
-     :ascii ("Source Code Pro"))
-    (monospace-sans-serif
-     :extends monospace-narrow
-     :ascii ("Roboto Mono" "DejaVu Sans Mono")))
+(defcustom prosody-stacks nil
   "Physical font candidates grouped into reusable stacks.
+Nil leaves physical fonts unconfigured.
 Each entry has the form (STACK :CATEGORY FONTS...).  Categories include
 :ascii, :cjk, :symbol, :mathematical, and :emoji.  A stack can inherit
 missing properties from another stack with :extends.  Font categories defined
@@ -279,28 +236,9 @@ removed."
   :group 'prosody
   :set #'prosody--set-stacks)
 
-(defcustom prosody-roles
-  `((default :stack monospace-narrow
-             :height ,(if (eq system-type 'darwin) 160 140))
-    (title :stack serif :weight heavy :height 2.0)
-    (heading :stack serif :height 1.5)
-    (body :stack monospace-sans-serif)
-    (documentation :extends body)
-    (prose :stack quasi-proportional)
-    (decorative :stack cursive)
-    (ui :stack sans-serif)
-    (metadata-label :stack monospace-sans-serif)
-    (metadata-value :stack monospace-narrow)
-    (mono :stack monospace-sans-serif)
-    (code :stack monospace-code)
-    (table :stack monospace-align)
-    (code-jvm :extends code :fonts ("JetBrains Mono"))
-    (code-python :extends code :fonts ("Cascadia Code"))
-    (code-diagram :extends code :fonts ("Fira Code"))
-    (code-apple :extends code :fonts ("SF Mono"))
-    (code-config :extends code :fonts ("IBM Plex Mono"))
-    (terminal :extends mono :fonts ("Menlo")))
+(defcustom prosody-roles nil
   "Typography preset organized by semantic role.
+Nil leaves semantic roles unconfigured.
 Each role has the form (ROLE :stack STACK &rest ATTRIBUTES).  STACK
 names an entry in `prosody-stacks'.  The
 `default' role uses an absolute face height in tenths of a point;
@@ -310,35 +248,9 @@ content roles use heights relative to it.  A role can use :extends and
   :group 'prosody
   :set #'prosody--set-preset)
 
-(defcustom prosody-presets
-  '((modern
-     (title :stack sans-serif :fonts ("Inter Display") :weight bold)
-     (heading :stack sans-serif :fonts ("Inter") :weight semi-bold)
-     (body :stack sans-serif :fonts ("Inter"))
-     (prose :stack sans-serif :fonts ("Inter"))
-     (decorative :stack sans-serif :fonts ("Inter") :slant italic)
-     (ui :stack sans-serif :fonts ("Inter"))
-     (metadata-label :stack sans-serif :fonts ("Inter")
-                     :weight semi-bold))
-    (classical
-     (title :stack serif :fonts ("EB Garamond"))
-     (heading :stack serif :fonts ("Athelas"))
-     (body :stack serif :fonts ("Iowan Old Style"))
-     (prose :stack serif :fonts ("Iowan Old Style"))
-     (decorative :stack cursive)
-     (metadata-label :stack slab-serif))
-    (technical
-     (title :stack sans-serif :fonts ("DIN Condensed") :weight bold)
-     (heading :stack sans-serif :fonts ("Avenir Next") :weight semi-bold)
-     (body :stack serif :fonts ("STIX Two Text"))
-     (prose :stack serif :fonts ("STIX Two Text"))
-     (decorative :stack slab-serif :fonts ("Roboto Slab"))
-     (ui :stack sans-serif :fonts ("Avenir Next"))
-     (metadata-label :stack sans-serif :fonts ("Avenir Next")
-                     :weight semi-bold)
-     (mono :stack monospace-narrow :fonts ("SF Mono"))
-     (code :stack monospace-code :fonts ("SF Mono"))))
+(defcustom prosody-presets nil
   "Named role overrides applied on top of `prosody-roles'.
+Nil provides no named presets.
 Each entry has the form (NAME (ROLE PROPERTY VALUE ...) ...).  Supported
 properties are :stack, :fonts, :height, :weight, :slant, and :width."
   :type 'sexp
@@ -391,14 +303,9 @@ font category configured in `prosody-stacks'."
   :type 'sexp
   :group 'prosody)
 
-(defcustom prosody-mode-rules
-  `((:modes (nxml-mode sgml-mode toml-ts-mode conf-mode)
-            :font code-config)
-    (:modes (prog-mode)
-            :font code)
-    (:modes (text-mode)
-            :font prose))
+(defcustom prosody-mode-rules nil
   "Fallback rules for buffer-local font selection.
+Nil provides no fallback rules.
 Matching module rules are layered in declaration order, while the first one
 providing :font or :rescale owns that setting.  The first matching rule here
 is used only when no module rule matches.  Each rule is a plist.  Supported
