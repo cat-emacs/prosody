@@ -16,7 +16,7 @@
 
 ;;; Commentary:
 
-;; Adds the `:font-role' keyword to `use-package'.
+;; Adds the `:font-rule' keyword to `use-package'.
 
 ;;; Code:
 
@@ -33,9 +33,9 @@
                 name
               (concat name "-mode")))))
 
-(defun use-package-normalize/:font-role (name _keyword args)
-  "Normalize a `:font-role' declaration for package NAME."
-  (use-package-only-one ":font-role" args
+(defun use-package-normalize/:font-rule (name _keyword args)
+  "Normalize a `:font-rule' declaration for package NAME."
+  (use-package-only-one ":font-rule" args
     (lambda (_label arg)
       (let* ((spec (cond
                     ((symbolp arg) (list :font arg))
@@ -43,59 +43,64 @@
                     ((and (consp arg) (symbolp (car arg)))
                      (cons :font arg))
                     (t (use-package-error
-                        ":font-role expects ROLE or (ROLE :KEY VALUE...)"))))
-             (allowed '(:modes :font :faces :rescale))
+                        ":font-rule expects ROLE or (ROLE :KEY VALUE...)"))))
+             (allowed '(:modes :buffer-name :font :faces :rescale))
              (tail spec))
         (unless (zerop (% (length spec) 2))
-          (use-package-error ":font-role expects a property list"))
+          (use-package-error ":font-rule expects a property list"))
         (while tail
           (unless (memq (pop tail) allowed)
-            (use-package-error ":font-role contains an unknown property"))
+            (use-package-error ":font-rule contains an unknown property"))
           (pop tail))
-        (unless (plist-member spec :modes)
+        (unless (or (plist-member spec :modes)
+                    (plist-member spec :buffer-name))
           (setq spec
                 (plist-put spec :modes
                            (prosody-use-package--default-mode name))))
-        (let ((font-present-p (plist-member spec :font))
+        (let ((buffer-name-present-p (plist-member spec :buffer-name))
+              (buffer-name (plist-get spec :buffer-name))
+              (font-present-p (plist-member spec :font))
               (role (plist-get spec :font))
               (faces-present-p (plist-member spec :faces))
               (faces (plist-get spec :faces)))
+          (when (and buffer-name-present-p (not (stringp buffer-name)))
+            (use-package-error ":font-rule :buffer-name must be a regexp string"))
           (when (and font-present-p
                      (not (and role (symbolp role))))
-            (use-package-error ":font-role :font must name a role"))
+            (use-package-error ":font-rule :font must name a role"))
           (when (and faces-present-p (not (listp faces)))
-            (use-package-error ":font-role :faces must be a list"))
+            (use-package-error ":font-rule :faces must be a list"))
           (dolist (face-rule faces)
             (unless (and (consp face-rule)
                          (symbolp (car face-rule))
                          (cadr face-rule)
                          (symbolp (cadr face-rule)))
               (use-package-error
-               ":font-role face rules must have the form (FACE ROLE ...)")))
+               ":font-rule face rules must have the form (FACE ROLE ...)")))
           (unless (or (and font-present-p role)
                       (and faces-present-p faces))
-            (use-package-error ":font-role requires :font or :faces")))
+            (use-package-error ":font-rule requires :font or :faces")))
         spec))))
 
-(defun use-package-handler/:font-role (name _keyword rule rest state)
+(defun use-package-handler/:font-rule (name _keyword rule rest state)
   "Register normalized font RULE for package NAME."
   (use-package-concat
    `((prosody-register ',name ',rule))
    (use-package-process-keywords name rest state)))
 
 (defun prosody-use-package--position-keyword ()
-  "Process `:font-role' eagerly after conditional keywords."
-  (setq use-package-keywords (delq :font-role use-package-keywords))
+  "Process `:font-rule' eagerly after conditional keywords."
+  (setq use-package-keywords (delq :font-rule use-package-keywords))
   (let ((position (or (cl-position :catch use-package-keywords)
                       (length use-package-keywords))))
     (setq use-package-keywords
           (append (seq-take use-package-keywords position)
-                  (list :font-role)
+                  (list :font-rule)
                   (seq-drop use-package-keywords position)))))
 
-(put 'use-package-handler/:font-role
+(put 'use-package-handler/:font-rule
      'function-documentation
-     "Register semantic font roles for a package's major modes")
+     "Register a package's semantic font rule")
 (prosody-use-package--position-keyword)
 
 ;; `use-package-ensure' can prepend keywords when it loads.

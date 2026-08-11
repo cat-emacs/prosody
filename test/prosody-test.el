@@ -55,18 +55,25 @@
                (lambda (&optional _frame) '("Installed"))))
       (should (equal (prosody-font-family 'prose) "Installed")))))
 
-(ert-deftest prosody-use-package-normalizes-short-role ()
+(ert-deftest prosody-use-package-normalizes-short-rule ()
   (should
-   (equal (use-package-normalize/:font-role
+   (equal (use-package-normalize/:font-rule
            'example nil '(code))
           '(:font code :modes example-mode))))
 
 (ert-deftest prosody-use-package-normalizes-face-only-rule ()
   (should
-   (equal (use-package-normalize/:font-role
+   (equal (use-package-normalize/:font-rule
            'example nil
            '((:modes text-mode :faces ((example-face prose)))))
           '(:modes text-mode :faces ((example-face prose))))))
+
+(ert-deftest prosody-use-package-normalizes-buffer-name-rule ()
+  (should
+   (equal (use-package-normalize/:font-rule
+           'example nil
+           '((code :buffer-name "Example")))
+          '(:font code :buffer-name "Example"))))
 
 (provide 'prosody-test)
 
