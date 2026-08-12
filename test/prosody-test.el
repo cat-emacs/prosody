@@ -32,11 +32,52 @@
     (with-temp-buffer
       (setq-local prosody-buffer-preset 'large)
       (setq-local prosody-buffer-overrides
-                  '((prose :fonts ("Charter") :slant italic)))
+                  '((prose :ascii ("Charter") :slant italic)))
       (should
        (equal (prosody--role-spec 'prose)
               '(:stack serif :height 1.3 :weight bold
-                :fonts ("Charter") :slant italic))))))
+                :ascii ("Charter") :slant italic))))))
+
+(ert-deftest prosody-role-candidates-prepend-role-font-categories ()
+  (let ((prosody-stacks
+         '((serif :ascii ("Stack ASCII")
+                   :cjk ("Stack CJK")
+                   :symbol ("Stack Symbols")
+                   :mathematical ("Stack Math")
+                   :emoji ("Stack Emoji"))))
+        (prosody-roles
+         '((prose :stack serif :height 1.1)))
+        (prosody-presets
+         '((localized
+            (prose :ascii ("Role ASCII")
+                   :cjk ("Role CJK")
+                   :symbol ("Role Symbols")
+                   :mathematical ("Role Math")
+                   :emoji ("Role Emoji")))))
+        (prosody-buffer-overrides nil)
+        (prosody--effective-preset-cache nil))
+    (with-temp-buffer
+      (setq-local prosody-buffer-preset 'localized)
+      (should (equal (prosody--role-candidates 'prose 'ascii)
+                     '("Role ASCII" "Stack ASCII")))
+      (should (equal (prosody--role-candidates 'prose 'cjk)
+                     '("Role CJK" "Stack CJK")))
+      (should (equal (prosody--role-candidates 'prose 'symbol)
+                     '("Role Symbols" "Stack Symbols")))
+      (should (equal (prosody--role-candidates 'prose 'mathematical)
+                     '("Role Math" "Stack Math")))
+      (should (equal (prosody--role-candidates 'prose 'emoji)
+                     '("Role Emoji" "Stack Emoji")))
+      (should (equal (prosody--role-attributes 'prose)
+                     '(:height 1.1))))))
+
+(ert-deftest prosody-role-overrides-reject-legacy-fonts-property ()
+  (let ((prosody-stacks '((serif :ascii ("Serif"))))
+        (prosody-roles '((prose :stack serif))))
+    (should-error
+     (prosody--validate-role-overrides
+      'legacy '((prose :fonts ("Charter"))))
+     :type 'error)))
 
 (ert-deftest prosody-select-preset-global-preserves-local-selection ()
   (let ((previous-default (default-value 'prosody-buffer-preset))

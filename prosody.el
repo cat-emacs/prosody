@@ -61,8 +61,13 @@
   "Replace registered font rules with a copy of RULES."
   (setq prosody-rule-alist (copy-tree rules)))
 
+(defconst prosody--font-category-properties
+  '(:ascii :cjk :symbol :mathematical :emoji)
+  "Properties that provide script-specific font candidates.")
+
 (defconst prosody--role-override-properties
-  '(:stack :fonts :height :weight :slant :width)
+  (append '(:stack :height :weight :slant :width)
+          prosody--font-category-properties)
   "Properties accepted in named and buffer-local role overrides.")
 
 (defvar prosody--configuration-version 0
@@ -105,11 +110,11 @@
                  when (and (eq property :stack)
                            (not (assq value stacks)))
                  do (error "Unknown font stack %S in preset %S" value owner)
-                 when (and (eq property :fonts)
+                 when (and (memq property prosody--font-category-properties)
                            (not (and (proper-list-p value)
                                      (seq-every-p #'stringp value))))
-                 do (error ":fonts must be a list of strings in preset %S"
-                           owner)
+                 do (error "%S must be a list of strings in preset %S"
+                           property owner)
                  when (and (eq property :height)
                            (not (and (numberp value) (> value 0))))
                  do (error ":height must be positive in preset %S" owner)
@@ -243,7 +248,8 @@ Each role has the form (ROLE :stack STACK &rest ATTRIBUTES).  STACK
 names an entry in `prosody-stacks'.  The
 `default' role uses an absolute face height in tenths of a point;
 content roles use heights relative to it.  A role can use :extends and
-:fonts to prepend concrete families to its inherited stack."
+the :ascii, :cjk, :symbol, :mathematical, and :emoji properties to prepend
+concrete families to the corresponding category in its inherited stack."
   :type 'sexp
   :group 'prosody
   :set #'prosody--set-preset)
@@ -252,7 +258,8 @@ content roles use heights relative to it.  A role can use :extends and
   "Named role overrides applied on top of `prosody-roles'.
 Nil provides no named presets.
 Each entry has the form (NAME (ROLE PROPERTY VALUE ...) ...).  Supported
-properties are :stack, :fonts, :height, :weight, :slant, and :width."
+properties are :stack, :ascii, :cjk, :symbol, :mathematical, :emoji,
+:height, :weight, :slant, and :width."
   :type 'sexp
   :group 'prosody
   :set #'prosody--set-presets)
@@ -405,8 +412,7 @@ Each function receives the configured frame.")
              do (setq result
                       (plist-put
                        result property
-                       (if (memq property
-                                 '(:ascii :cjk :symbol :mathematical :emoji))
+                       (if (memq property prosody--font-category-properties)
                            (delete-dups
                             (append value (plist-get result property) nil))
                          value))))
@@ -429,9 +435,8 @@ Each function receives the configured frame.")
          (stack (plist-get role-spec :stack))
          (stack-spec (prosody--stack-spec stack))
          (property (intern (format ":%s" script)))
-         (fonts (copy-sequence (plist-get stack-spec property))))
-    (when (eq script 'ascii)
-      (setq fonts (append (plist-get role-spec :fonts) fonts)))
+         (fonts (append (plist-get role-spec property)
+                        (plist-get stack-spec property))))
     (unless (and fonts (seq-every-p #'stringp fonts))
       (error "No %s fonts configured for role %S" script role))
     (delete-dups fonts)))
@@ -449,7 +454,8 @@ Each function receives the configured frame.")
 (defun prosody--role-attributes (role)
   "Return face attributes associated with font ROLE."
   (cl-loop for (attribute value) on (prosody--role-spec role) by #'cddr
-           unless (memq attribute '(:stack :fonts :extends))
+           unless (or (memq attribute '(:stack :extends))
+                      (memq attribute prosody--font-category-properties))
            append (list attribute value)))
 
 (defun prosody--data-hash (data)

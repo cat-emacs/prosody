@@ -125,17 +125,22 @@ interdependent values become visible atomically.
 (ROLE
  :stack STACK
  :extends PARENT-ROLE
- :fonts (PREFERRED-ASCII-FAMILY ...)
+ :ascii (PREFERRED-ASCII-FAMILY ...)
+ :cjk (PREFERRED-CJK-FAMILY ...)
  FACE-ATTRIBUTE VALUE ...)
 #+end_src
 
 Role-specific keys are:
 
-| Key        | Meaning                                                   |
-|------------+-----------------------------------------------------------|
-| =:stack=     | Physical stack used by the role                           |
-| =:extends=   | Parent role providing inherited role properties           |
-| =:fonts=     | ASCII families prepended to the resolved stack candidates |
+| Key              | Meaning                                                        |
+|------------------+----------------------------------------------------------------|
+| =:stack=           | Physical stack used by the role                                |
+| =:extends=         | Parent role providing inherited role properties                |
+| =:ascii=           | ASCII families prepended to the resolved stack candidates       |
+| =:cjk=             | CJK families prepended to the resolved stack candidates         |
+| =:symbol=          | Symbol families prepended to the resolved stack candidates      |
+| =:mathematical=    | Math families prepended to the resolved stack candidates        |
+| =:emoji=           | Emoji families prepended to the resolved stack candidates       |
 
 Other keys are passed to =set-face-attribute=, including =:family=, =:height=,
 =:weight=, =:slant=, =:width=, =:underline=, and other standard face
@@ -291,23 +296,28 @@ transactional rule state.
 #+begin_src emacs-lisp
 (setq prosody-presets
       '((reading
-         (prose :stack serif :fonts ("Iowan Old Style"))
+         (prose :stack serif :ascii ("Iowan Old Style")
+                :cjk ("Songti SC"))
          (heading :weight semi-bold))
         (technical
-         (prose :fonts ("STIX Two Text"))
-         (code :fonts ("SF Mono")))))
+         (prose :ascii ("STIX Two Text"))
+         (code :ascii ("SF Mono")))))
 #+end_src
 
 Preset and buffer-local role overrides accept these keys:
 
-| Key       | Meaning |
-|-----------+---------|
-| =:stack=    | Replace the role's stack |
-| =:fonts=    | Replace its preferred ASCII list while retaining stack fallback |
-| =:height=   | Override face height |
-| =:weight=   | Override face weight |
-| =:slant=    | Override face slant |
-| =:width=    | Override face width |
+| Key             | Meaning |
+|-----------------+---------|
+| =:stack=          | Replace the role's stack |
+| =:ascii=          | Replace its preferred ASCII list while retaining stack fallback |
+| =:cjk=            | Replace its preferred CJK list while retaining stack fallback |
+| =:symbol=         | Replace its preferred symbol list while retaining stack fallback |
+| =:mathematical=   | Replace its preferred math list while retaining stack fallback |
+| =:emoji=          | Replace its preferred emoji list while retaining stack fallback |
+| =:height=         | Override face height |
+| =:weight=         | Override face weight |
+| =:slant=          | Override face slant |
+| =:width=          | Override face width |
 
 Two automatically buffer-local variables select and refine the effective
 preset:
@@ -316,7 +326,7 @@ preset:
 (setq-local prosody-buffer-preset 'technical)
 (setq-local prosody-buffer-overrides
             '((prose :stack sans-serif)
-              (code :fonts ("Maple Mono"))))
+              (code :ascii ("Maple Mono"))))
 (prosody-refresh-buffer)
 #+end_src
 
@@ -325,7 +335,7 @@ They are safe file-local variables after validation:
 #+begin_example
 ;; Local Variables:
 ;; prosody-buffer-preset: technical
-;; prosody-buffer-overrides: ((code :fonts ("Maple Mono")))
+;; prosody-buffer-overrides: ((code :ascii ("Maple Mono")))
 ;; End:
 #+end_example
 
